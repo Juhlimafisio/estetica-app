@@ -12,96 +12,80 @@ button{background:linear-gradient(135deg,#a07830,#c9a84c);color:#fff;border:none
 .card{background:#fff;border-radius:14px;padding:20px;border:1px solid #e0d8cc;margin-bottom:16px}
 .ok{background:#eaf4ee;border:1px solid #b0d8c0;border-radius:10px;padding:14px;margin-top:12px;font-size:14px;color:#3a6a48;line-height:1.8}
 .vazio{background:#fff0ee;border:1px solid #e0b0a8;border-radius:10px;padding:14px;margin-top:12px;font-size:14px;color:#8a3a3a;line-height:1.8}
+pre{background:#f0f0f0;padding:10px;border-radius:8px;font-size:11px;overflow-x:auto;margin-top:8px;white-space:pre-wrap;word-break:break-all}
 </style>
 </head>
 <body>
-<h1>🔍 Recuperar Dados do App</h1>
-<p>Esta página verifica se há dados salvos aqui e nos links antigos do Netlify.</p>
+<h1>🔍 Recuperar Dados</h1>
+<p>Toque no botão abaixo para verificar se há dados salvos neste dispositivo.</p>
 
 <div class="card">
-  <strong>Passo 1 — Verificar dados aqui</strong>
-  <p style="margin-top:8px;margin-bottom:0;font-size:13px">Toca no botão para ver se tem dados salvos neste link do GitHub.</p>
-  <button onclick="verificarAqui()">🔍 Verificar dados aqui</button>
-  <div id="r1"></div>
-</div>
-
-<div class="card">
-  <strong>Passo 2 — Verificar links antigos do Netlify</strong>
-  <p style="margin-top:8px;margin-bottom:0;font-size:13px">Cole o link do Netlify abaixo e abra — os dados ficam no localStorage daquele domínio.</p>
-  <p style="margin-top:8px;font-size:13px;color:#a07830"><strong>Links para tentar (um por vez):</strong><br>
-  • illustrious-cajeta-421f90.netlify.app<br>
-  • incomparable-empanada-9364a1.netlify.app<br>
-  • heartfelt-gecko-b31275.netlify.app<br>
-  • clever-faloodeh-b7091e.netlify.app
-  </p>
-  <p style="font-size:13px">Para cada link: abra no Safari, adicione <strong>/recuperar-dados.html</strong> no final da URL e toque em "Verificar dados aqui".</p>
-</div>
-
-<div class="card" id="exportCard" style="display:none">
-  <strong>✓ Dados encontrados! Exportar backup</strong>
-  <button onclick="exportar()">💾 Baixar backup_recuperado.json</button>
-  <div id="r2"></div>
+  <strong>Verificar e exportar dados</strong>
+  <p style="margin-top:8px;margin-bottom:0;font-size:13px">Esta página lê todos os dados salvos no localStorage deste iPad e exporta um backup.</p>
+  <button onclick="verificar()">🔍 Verificar agora</button>
+  <div id="resultado"></div>
 </div>
 
 <script>
-var dadosEncontrados = null;
-
-function verificarAqui(){
-  var chaves = ['est_clients','est_atends','est_atendimentos','est_termos','est_termosRegistrados','est_agenda','est_pacotes','est_pacotesCliente'];
+function verificar(){
+  var chaves = ['est_clients','est_atends','est_atendimentos','est_termos','est_termosRegistrados','est_agenda','est_pacotes','est_pacotesCliente','est_minhaSig'];
   var dados = {};
   var temAlgo = false;
+  var info = '';
+
+  // Mostra TODAS as chaves do localStorage para diagnóstico
+  info += 'Total de chaves no localStorage: ' + localStorage.length + '\n';
+  for(var i = 0; i < localStorage.length; i++){
+    var k = localStorage.key(i);
+    info += 'Chave: ' + k + '\n';
+  }
 
   chaves.forEach(function(k){
     try{
       var v = localStorage.getItem(k);
       if(v){
         var p = JSON.parse(v);
-        if(Array.isArray(p) && p.length > 0){
-          dados[k] = p;
-          temAlgo = true;
-        }
+        dados[k] = p;
+        if(Array.isArray(p) && p.length > 0) temAlgo = true;
+        else if(typeof p === 'string' && p.length > 0) temAlgo = true;
       }
     }catch(e){}
   });
 
-  var r1 = document.getElementById('r1');
+  var r = document.getElementById('resultado');
 
   if(temAlgo){
     var clients = dados['est_clients'] || [];
     var atends = dados['est_atends'] || dados['est_atendimentos'] || [];
     var termos = dados['est_termos'] || dados['est_termosRegistrados'] || [];
     var agenda = dados['est_agenda'] || [];
-    
-    r1.innerHTML = '<div class="ok">✓ Dados encontrados neste link!<br>' +
+    var pacotes = dados['est_pacotes'] || dados['est_pacotesCliente'] || [];
+
+    r.innerHTML = '<div class="ok">✓ Dados encontrados!<br>' +
       '👥 ' + clients.length + ' cliente(s)<br>' +
       '🗓️ ' + atends.length + ' evolução(ões)<br>' +
       '📝 ' + termos.length + ' termo(s)<br>' +
-      '📅 ' + agenda.length + ' agendamento(s)</div>';
-    
-    dadosEncontrados = dados;
-    document.getElementById('exportCard').style.display = 'block';
+      '📅 ' + agenda.length + ' agendamento(s)<br>' +
+      '📦 ' + pacotes.length + ' pacote(s)</div>' +
+      '<button onclick="exportar()" style="margin-top:12px">💾 Baixar backup_recuperado.json</button>';
+
+    window._backup = {clients:clients,atends:atends,termos:termos,agenda:agenda,pacotes:pacotes};
   } else {
-    r1.innerHTML = '<div class="vazio">⚠️ Nenhum dado encontrado neste link.<br>Tente os outros links do Netlify conforme o Passo 2.</div>';
+    r.innerHTML = '<div class="vazio">⚠️ Nenhum dado encontrado neste link.<br><br>' +
+      '<strong>Diagnóstico:</strong><pre>' + info + '</pre></div>';
   }
 }
 
 function exportar(){
-  if(!dadosEncontrados) return;
-  var backup = {
-    clients: dadosEncontrados['est_clients'] || [],
-    atends: dadosEncontrados['est_atends'] || dadosEncontrados['est_atendimentos'] || [],
-    termos: dadosEncontrados['est_termos'] || dadosEncontrados['est_termosRegistrados'] || [],
-    agenda: dadosEncontrados['est_agenda'] || [],
-    pacotes: dadosEncontrados['est_pacotes'] || dadosEncontrados['est_pacotesCliente'] || []
-  };
-  var blob = new Blob([JSON.stringify(backup,null,2)],{type:'application/json'});
+  var b = window._backup;
+  if(!b) return;
+  var blob = new Blob([JSON.stringify(b,null,2)],{type:'application/json'});
   var url = URL.createObjectURL(blob);
   var a = document.createElement('a');
   a.href = url;
   a.download = 'backup_recuperado.json';
   a.click();
   URL.revokeObjectURL(url);
-  document.getElementById('r2').innerHTML = '<div class="ok" style="margin-top:10px">✓ Arquivo exportado! Agora abra o app e use ↩ Restaurar.</div>';
 }
 </script>
 </body>
