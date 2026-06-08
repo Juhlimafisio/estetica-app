@@ -830,7 +830,7 @@ function App(){
           )
         ),
         h(Field,{label:'Evolução / Observações'},h('textarea',{rows:3,className:'inp',placeholder:'Reações, resultados...',value:atForm.obs||'',onChange:function(e){setAtForm(function(f){return Object.assign({},f,{obs:e.target.value});});},style:{resize:'vertical'}})),
-        h(Field,{label:'Retorno'},h('input',{type:'date',className:'inp',value:atForm.retorno||'',onChange:function(e){setAtForm(function(f){return Object.assign({},f,{retorno:e.target.value});});}})),
+        h(Field,{label:'Retorno'},h('input',{className:'inp',placeholder:'DD/MM/AAAA',maxLength:10,value:atForm.retorno||'',onChange:function(e){var v=e.target.value.replace(/\D/g,'').slice(0,8);if(v.length>4)v=v.replace(/(\d{2})(\d{2})(\d{0,4})/,'$1/$2/$3');else if(v.length>2)v=v.replace(/(\d{2})(\d{0,2})/,'$1/$2');setAtForm(function(f){return Object.assign({},f,{retorno:v});});}})),
         h('hr',{className:'hr'}),
         h('div',{className:'c-lbl'},'💰 Financeiro'),
         h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
