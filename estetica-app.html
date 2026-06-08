@@ -230,7 +230,7 @@ function catColor(cat){
   var m={'Facial Clínico':'#9a3a3a','Regeneração Facial':'#3a4a9a','Harmonização':'#7a3a9a','Corporal':'#2a6a40','Pós-operatório':'#8a6a10'};
   return m[cat]||'#a07830';
 }
-var emptyAtend={cid:'',data:'',proc:'',sessao:'',obs:'',retorno:'',valor:'',pagto:'PIX',parcelas:'',status:'pago',botox:{},produto:'',lote:'',validade:'',volume:'',tecnica:'',regioes:[],pacoteSessoes:''};
+var emptyAtend={cid:'',data:'',proc:'',sessao:'',obs:'',retorno:'',valor:'',valorCobrado:'',pagto:'PIX',parcelas:'',status:'pago',botox:{},produto:'',lote:'',validade:'',volume:'',tecnica:'',regioes:[],pacoteSessoes:'',tipoRetoque:'aplicacao'};
 
 function fmtTel(v){
   var n=v.replace(/\D/g,'').slice(0,11);
@@ -240,10 +240,8 @@ function fmtTel(v){
   if(n.length>0)return '('+n;
   return n;
 }
-var emptyAgenda={cid:'',data:'',hora:'',servico:'',obs:'',status:'marcado'};
+var emptyAgenda={cid:'',data:'',hora:'',servico:'',servicos:[],obs:'',status:'marcado'};
 var emptyFicha={nome:'',tel:'',nasc:'',cpf:'',email:''};
-
-// ── SUBCOMPONENTS ────────────────────────────────────────────────────────────
 
 function Field(props){
   return h('div',{className:'field'},h('span',{className:'lbl'},props.label),props.children);
@@ -359,7 +357,6 @@ function Stepper(props){
   );
 }
 
-// ── MAIN APP ──────────────────────────────────────────────────────────────────
 function App(){
   var cs=useState(function(){return loadData('est_clients',[]);});var clients=cs[0],setClients=cs[1];
   var as=useState(function(){return loadData('est_atends',[]);});var atends=as[0],setAtends=as[1];
@@ -410,7 +407,41 @@ function App(){
   }
 
   function exportarRelatorio(){ showToast("Em breve!"); }
-  function exportarEvolucao(a){ showToast("Em breve!"); }
+  function exportarEvolucao(at){
+    var c=clients.find(function(x){return String(x.id)===String(at.cid);})||{nome:'Cliente'};
+    var linhas=['EVOLUÇÃO CLÍNICA','',
+      'Profissional: Juliana Lima — Fisioterapeuta Dermato Funcional','CREFITO 10 220295-F','',
+      'Cliente: '+c.nome,'Data: '+(at.data||'—'),'Procedimento: '+(at.proc||'—'),
+      at.sessao?'Sessão: '+at.sessao:'',
+      ''];
+    if(at.proc==='Toxina Botulínica'&&at.botox&&Object.keys(at.botox).length>0){
+      linhas.push('LOCAIS E UNIDADES:');
+      var total=0;
+      Object.keys(at.botox).forEach(function(k){var u=parseFloat(at.botox[k])||0;if(u>0){linhas.push('  '+k+': '+u+' U');total+=u;}});
+      linhas.push('Total: '+total+' U');
+      if(at.tipoRetoque)linhas.push('Tipo: '+at.tipoRetoque);
+      linhas.push('');
+    }
+    if(at.produto){linhas.push('Produto: '+at.produto);}
+    if(at.lote){linhas.push('Lote: '+at.lote);}
+    if(at.validade){linhas.push('Validade: '+at.validade);}
+    if(Array.isArray(at.regioes)&&at.regioes.length>0){linhas.push('Regiões: '+at.regioes.join(', '));}
+    if(at.volume){linhas.push('Volume: '+at.volume+' ml');}
+    if(at.tecnica){linhas.push('Técnica: '+at.tecnica);}
+    if(at.produto||at.lote)linhas.push('');
+    if(at.obs){linhas.push('EVOLUÇÃO / OBSERVAÇÕES:');linhas.push(at.obs);linhas.push('');}
+    if(at.retorno){linhas.push('Retorno agendado: '+at.retorno);linhas.push('');}
+    linhas.push('Pagamento: '+(at.pagto||'—')+(at.parcelas?' · '+at.parcelas+'x':''));
+    if(at.valorCobrado)linhas.push('Valor cobrado: R$ '+parseFloat(at.valorCobrado).toFixed(2).replace('.',','));
+    linhas.push('Valor recebido: R$ '+parseFloat(at.valor||0).toFixed(2).replace('.',','));
+    var html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Evolucao '+c.nome+'</title><style>body{font-family:\'Inter\',Arial,sans-serif;padding:32px;max-width:600px;margin:auto;color:#1e1a14}h1{color:#a07830;font-size:20px;margin-bottom:4px}pre{white-space:pre-wrap;font-family:inherit;font-size:14px;line-height:1.7}.hr{border:none;border-top:1px solid #e0d8cc;margin:16px 0}@media print{body{padding:16px}}</style></head><body>';
+    html+='<h1>Evolução Clínica</h1><div style="font-size:12px;color:#a09080;margin-bottom:16px">JL Estética Avançada</div><hr class="hr">';
+    html+=linhas.filter(function(l){return l!==null&&l!==undefined;}).map(function(l){return '<div style="margin-bottom:4px">'+(l===''?'&nbsp;':l)+'</div>';}).join('');
+    html+='</body></html>';
+    var b=new Blob([html],{type:'text/html'});var u=URL.createObjectURL(b);
+    var a=document.createElement('a');a.href=u;a.download='Evolucao_'+c.nome.replace(/ /g,'_')+'_'+at.data+'.html';a.click();URL.revokeObjectURL(u);
+    showToast('✓ Arquivo salvo! Abra e imprima como PDF.');
+  }
   function importar(e){
     var f=e.target.files[0];if(!f)return;
     var r=new FileReader();
@@ -418,8 +449,7 @@ function App(){
       try{
         var d=JSON.parse(ev.target.result);
         if(d.clients)setClients(d.clients);
-        // Suporte ao formato antigo (clienteId, procedimento, etc)
-        var rawAtends=d.atends||d.atendimentos||[];
+            var rawAtends=d.atends||d.atendimentos||[];
         var convertedAtends=rawAtends.map(function(a){
           return {
             id:a.id,
@@ -445,8 +475,7 @@ function App(){
           };
         });
         if(convertedAtends.length>0)setAtends(convertedAtends);
-        // Termos
-        var rawTermos=d.termos||d.termosRegistrados||[];
+            var rawTermos=d.termos||d.termosRegistrados||[];
         var convertedTermos=rawTermos.map(function(t){
           return {
             id:t.id,nome:t.nome||t.cliente||'',
@@ -543,14 +572,21 @@ function App(){
     return a.status==='pago'?(parseFloat(a.valor)||0):0;
   }
   function salvarAg(){
-    if(!agForm.data||!agForm.hora||!agForm.servico)return showToast('⚠️ Preencha data, horário e serviço.');
-    if(editAgId){setAgenda(function(prev){return prev.map(function(a){return a.id===editAgId?Object.assign({},a,agForm):a;});});setEditAgId(null);showToast('✓ Atualizado!');}
-    else{setAgenda(function(prev){return prev.concat([Object.assign({id:Date.now()},agForm)]);});showToast('✓ Agendado!');}
+    var svcs=Array.isArray(agForm.servicos)&&agForm.servicos.length>0?agForm.servicos:(agForm.servico?[agForm.servico]:[]);
+    if(!agForm.data||!agForm.hora||svcs.length===0)return showToast('⚠️ Preencha data, horário e serviço.');
+    var formFinal=Object.assign({},agForm,{servicos:svcs,servico:svcs[0]});
+    if(editAgId){setAgenda(function(prev){return prev.map(function(a){return a.id===editAgId?Object.assign({},a,formFinal):a;});});setEditAgId(null);showToast('✓ Atualizado!');}
+    else{setAgenda(function(prev){return prev.concat([Object.assign({id:Date.now()},formFinal)]);});showToast('✓ Agendado!');}
     setAgForm(emptyAgenda);setAgModal(false);
   }
 
+  function dataMes(data){
+    if(!data)return '';
+    if(data.indexOf('/')>=0){var p=data.split('/');return p.length===3?p[2]+'-'+p[1]:'';}
+    return data.slice(0,7);
+  }
   var filtClients=clients.filter(function(c){return c.nome.toLowerCase().indexOf(search.toLowerCase())>=0;});
-  var atendMes=atends.filter(function(a){return a.data&&a.data.slice(0,7)===mesFin;});
+  var atendMes=atends.filter(function(a){return dataMes(a.data)===mesFin;});
   var totMes=atendMes.reduce(function(s,a){return s+(parseFloat(a.valor)||0);},0);
   var totPago=atendMes.reduce(function(s,a){return s+vrec(a);},0);
   var semana=getSemana(agData);
@@ -565,7 +601,6 @@ function App(){
     h('input',{ref:fileRef,type:'file',accept:'image/*',style:{display:'none'},onChange:function(e){var f=e.target.files[0];if(!f||!fotoCtx)return;var r=new FileReader();r.onload=function(ev){setClients(function(prev){return prev.map(function(c){return c.id===fotoCtx.cid?Object.assign({},c,{fotos:(c.fotos||[]).concat([{id:Date.now(),tipo:fotoCtx.tipo,url:ev.target.result,data:new Date().toLocaleDateString('pt-BR')}])}):c;});});showToast('✓ Foto adicionada!');};r.readAsDataURL(f);e.target.value='';setFotoCtx(null);}}),
     h('input',{ref:importRef,type:'file',accept:'.json',style:{display:'none'},onChange:importar}),
 
-    // HEADER
     h('div',{style:{background:'#fff',padding:'14px 18px 12px',borderBottom:'1px solid #e0d8cc',zIndex:50,flexShrink:0,boxShadow:'0 1px 8px rgba(160,120,48,0.06)'}},
       h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between'}},
         h('div',null,
@@ -581,7 +616,6 @@ function App(){
       sec==='clientes'&&h('input',{className:'inp',style:{marginTop:10,borderRadius:30,paddingLeft:16,fontSize:14},placeholder:'Buscar cliente...',value:search,onChange:function(e){setSearch(e.target.value);}})
     ),
 
-    // CLIENTES
     sec==='clientes'&&h('div',{className:'scroll'},
       h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}},
         h('div',null,h('div',{className:'t-title'},'Clientes'),h('div',{className:'t-sub'},clients.length+' cadastrada'+(clients.length!==1?'s':''))),
@@ -600,7 +634,6 @@ function App(){
       );})
     ),
 
-    // Modal Cliente
     selClient&&h('div',{className:'modal-bg',onClick:function(){setSelClient(null);}},
       h('div',{className:'modal-box',onClick:function(e){e.stopPropagation();}},
         h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}},
@@ -613,7 +646,7 @@ function App(){
           return h('div',null,
             h('div',{style:{fontFamily:"'Inter',sans-serif",fontSize:13,color:'#6a5e4a',marginBottom:3}},'📱 '+c.tel),
             c.cpf&&h('div',{style:{fontFamily:"'Inter',sans-serif",fontSize:13,color:'#6a5e4a',marginBottom:3}},'🪪 '+c.cpf),
-            c.nasc&&h('div',{style:{fontFamily:"'Inter',sans-serif",fontSize:13,color:'#6a5e4a',marginBottom:3}},'🎂 '+fmtBR(c.nasc)),
+            c.nasc&&h('div',{style:{fontFamily:"'Inter',sans-serif",fontSize:13,color:'#6a5e4a',marginBottom:3}},'🎂 '+c.nasc),
             c.email&&h('div',{style:{fontFamily:"'Inter',sans-serif",fontSize:13,color:'#6a5e4a',marginBottom:8}},'✉️ '+c.email),
             Object.keys(anams).length>0&&h('div',null,
               h('hr',{className:'hr'}),
@@ -672,7 +705,6 @@ function App(){
       )
     ),
 
-    // Modal Anamnese Step 1
     cidAnam&&anamStep===1&&h('div',{className:'modal-bg',onClick:function(){setCidAnam(null);setSvc(null);}},
       h('div',{className:'modal-box',onClick:function(e){e.stopPropagation();},style:{maxHeight:'92vh'}},
         h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16}},
@@ -681,7 +713,7 @@ function App(){
         ),
         h('div',{style:{fontSize:13,color:'#a09080',marginBottom:16}},(clients.find(function(c){return c.id===cidAnam;})||{}).nome||''),
         Object.keys(CATS).map(function(cat){return h('div',{key:cat,style:{marginBottom:16}},
-          h('div',{style:{fontSize:11,fontWeight:700,color:catColor(cat),textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:8}},cat),
+          h('div',{style:{fontSize:11,fontWeight:700,color:catColor(cat),textTransform:'uppercase',letterSpacing:".8px",marginBottom:8}},cat),
           CATS[cat].map(function(s){var sel=svc===s;return h('div',{key:s,className:'svc-card'+(sel?' sel':''),onClick:function(){setSvc(sel?null:s);}},
             h('div',{style:{width:20,height:20,borderRadius:'50%',border:'2px solid '+(sel?'#a07830':'#c0b090'),background:sel?'#a07830':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}},sel&&h('div',{style:{width:8,height:8,borderRadius:'50%',background:'#fff'}})),
             h('div',{style:{fontFamily:"'Inter',sans-serif",fontSize:14,color:'#1e1a14',fontWeight:sel?700:400}},s)
@@ -702,7 +734,6 @@ function App(){
       )
     ),
 
-    // NOVA FICHA
     sec==='nova-ficha'&&fichaStep===1&&h('div',{className:'scroll'},
       h(Stepper,{steps:['Cadastro','Serviço','Anamnese'],cur:0}),
       h('div',{className:'t-title'},'Cadastro'),h('div',{className:'t-sub'},'Dados básicos da cliente'),
@@ -710,7 +741,7 @@ function App(){
         h(Field,{label:'Nome completo *'},h('input',{className:'inp',placeholder:'Nome da cliente',value:ficha.nome,onChange:function(e){setFicha(function(f){return Object.assign({},f,{nome:e.target.value});});}})),
         h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
           h(Field,{label:'Telefone *'},h('input',{className:'inp',placeholder:'(11) 99999-0000',value:ficha.tel,onChange:function(e){setFicha(function(f){return Object.assign({},f,{tel:fmtTel(e.target.value)});});}})),
-          h(Field,{label:'Data de nascimento'},h('input',{type:'date',className:'inp',value:ficha.nasc,onChange:function(e){setFicha(function(f){return Object.assign({},f,{nasc:e.target.value});})}})),
+          h(Field,{label:'Data de nascimento'},h('input',{className:'inp',placeholder:'DD/MM/AAAA',maxLength:10,value:ficha.nasc||'',onChange:function(e){var v=e.target.value.replace(/\D/g,'').slice(0,8);if(v.length>4)v=v.replace(/(\d{2})(\d{2})(\d{0,4})/,'$1/$2/$3');else if(v.length>2)v=v.replace(/(\d{2})(\d{0,2})/,'$1/$2');setFicha(function(f){return Object.assign({},f,{nasc:v});});}})),
         ),
         h(Field,{label:'CPF'},h('input',{className:'inp',placeholder:'000.000.000-00',value:ficha.cpf||'',onChange:function(e){var v=e.target.value.replace(/\D/g,'').slice(0,11);if(v.length>9)v=v.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/,'$1.$2.$3-$4');else if(v.length>6)v=v.replace(/(\d{3})(\d{3})(\d{0,3})/,'$1.$2.$3');else if(v.length>3)v=v.replace(/(\d{3})(\d{0,3})/,'$1.$2');setFicha(function(f){return Object.assign({},f,{cpf:v});});}})),
         h(Field,{label:'E-mail'},h('input',{className:'inp',placeholder:'email@exemplo.com',value:ficha.email,onChange:function(e){setFicha(function(f){return Object.assign({},f,{email:e.target.value});});}}))
@@ -724,7 +755,7 @@ function App(){
       h(Stepper,{steps:['Cadastro','Serviço','Anamnese'],cur:1}),
       h('div',{className:'t-title'},'Serviço'),h('div',{className:'t-sub'},'Selecione o procedimento'),
       Object.keys(CATS).map(function(cat){return h('div',{key:cat,style:{marginBottom:18}},
-        h('div',{style:{fontSize:11,fontWeight:700,color:catColor(cat),textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:10,paddingLeft:4}},cat),
+        h('div',{style:{fontSize:11,fontWeight:700,color:catColor(cat),textTransform:'uppercase',letterSpacing:".8px",marginBottom:10,paddingLeft:4}},cat),
         CATS[cat].map(function(s){var sel=svc===s;return h('div',{key:s,className:'svc-card'+(sel?' sel':''),onClick:function(){setSvc(sel?null:s);}},
           h('div',{style:{width:20,height:20,borderRadius:'50%',border:'2px solid '+(sel?'#a07830':'#c0b090'),background:sel?'#a07830':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}},sel&&h('div',{style:{width:8,height:8,borderRadius:'50%',background:'#fff'}})),
           h('div',{style:{fontFamily:"'Inter',sans-serif",fontSize:14,color:'#1e1a14',fontWeight:sel?700:400}},s)
@@ -748,17 +779,25 @@ function App(){
       )
     ),
 
-    // EVOLUÇÃO
     sec==='atendimentos'&&h('div',{className:'scroll'},
       h('div',{className:'t-title'},'Evolução'),h('div',{className:'t-sub'},'Registro de atendimentos'),
       h('div',{className:'card'},
         h('div',{className:'c-lbl'},editAtId?'✏️ Editando':'Novo Atendimento'),
         h(Field,{label:'Cliente *'},h('select',{className:'inp',value:atForm.cid,onChange:function(e){var cid=e.target.value;var s=SESSOES_CATS.indexOf(atForm.proc)>=0?calcSessao(cid,atForm.proc):'';setAtForm(function(f){return Object.assign({},f,{cid:cid,sessao:s});});}},h('option',{value:''},'Selecionar...'),clients.map(function(c){return h('option',{key:c.id,value:c.id},c.nome);}))),
-        h(Field,{label:'Data *'},h('input',{type:'date',className:'inp',value:atForm.data,onChange:function(e){setAtForm(function(f){return Object.assign({},f,{data:e.target.value});});}})),
+        h(Field,{label:'Data *'},h('input',{className:'inp',placeholder:'DD/MM/AAAA',maxLength:10,value:atForm.data||'',onChange:function(e){var v=e.target.value.replace(/\D/g,'').slice(0,8);if(v.length>4)v=v.replace(/(\d{2})(\d{2})(\d{0,4})/,'$1/$2/$3');else if(v.length>2)v=v.replace(/(\d{2})(\d{0,2})/,'$1/$2');setAtForm(function(f){return Object.assign({},f,{data:v});});},onFocus:function(){if(!atForm.data){var n=new Date();var d=String(n.getDate()).padStart(2,'0');var m=String(n.getMonth()+1).padStart(2,'0');var a=n.getFullYear();setAtForm(function(f){return Object.assign({},f,{data:d+'/'+m+'/'+a});});}}})),
         h(Field,{label:'Procedimento *'},h('select',{className:'inp',value:atForm.proc,onChange:function(e){var proc=e.target.value;var s=SESSOES_CATS.indexOf(proc)>=0?calcSessao(atForm.cid,proc):'';setAtForm(function(f){return Object.assign({},f,{proc:proc,sessao:s});});}},h('option',{value:''},'Selecionar...'),Object.keys(CATS).map(function(cat){return h('optgroup',{key:cat,label:'── '+cat},CATS[cat].map(function(s){return h('option',{key:s,value:s},s);}));}))),
         SESSOES_CATS.indexOf(atForm.proc)>=0&&h(Field,{label:'Sessão nº (automático)'},h('input',{type:'number',min:1,className:'inp',style:{background:'#eaf4ee',color:'#3a6a48',fontWeight:700},value:atForm.sessao,onChange:function(e){setAtForm(function(f){return Object.assign({},f,{sessao:e.target.value});});}})),
         atForm.proc==='Toxina Botulínica'&&h('div',{style:{background:'#fdf8e8',borderRadius:12,padding:'14px',marginBottom:15}},
-          h('div',{className:'c-lbl'},'💉 Locais de Aplicação e Unidades'),
+          h('div',{className:'c-lbl'},'💉 Toxina Botulínica'),
+          h(Field,{label:'Tipo de atendimento'},
+            h('div',{style:{display:'flex',gap:8,marginTop:4}},
+              ['aplicacao','retoque'].map(function(tipo){
+                var ativo=( atForm.tipoRetoque||'aplicacao')===tipo;
+                return h('div',{key:tipo,onClick:function(){setAtForm(function(f){return Object.assign({},f,{tipoRetoque:tipo});});},style:{flex:1,textAlign:'center',fontFamily:"'Inter',sans-serif",fontSize:13,fontWeight:600,padding:'10px',borderRadius:10,border:'1px solid '+(ativo?'#a07830':'#e0d8cc'),background:ativo?'linear-gradient(135deg,#a07830,#c9a84c)':'#f7f4ef',color:ativo?'#fff':'#6a5e4a',cursor:'pointer'}},tipo==='aplicacao'?'💉 Aplicação':'🔄 Retoque');
+              })
+            )
+          ),
+          h('div',{className:'c-lbl',style:{marginTop:10}},'Locais e Unidades'),
           [['corrugador','Corrugador'],['frontal','Frontal'],['temporal','Temporal'],['sobrancelha','Sobrancelha'],['orbicular','Orbicular dos olhos'],['nasal','Nasal'],['depSepto','Depressor do septo nasal'],['labSup','Lábio superior'],['depAngulo','Depressor do ângulo da boca'],['mentoniano','Mentoniano'],['masseter','Masseter'],['platisma','Platisma']].map(function(r){
             return h('div',{key:r[0],style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10,gap:12}},
               h('span',{style:{fontSize:13,color:'#1e1a14',flex:1}},r[1]),
@@ -771,16 +810,16 @@ function App(){
           h('div',{style:{borderTop:'1px solid #e0d8cc',marginTop:10,paddingTop:10,display:'flex',justifyContent:'space-between'}},
             h('span',{style:{fontSize:13,fontWeight:700,color:'#a07830'}},'Total'),
             h('span',{style:{fontFamily:"'Cormorant Garamond',serif",fontSize:18,color:'#1e1a14',fontWeight:700}},
-              (Object.values(atForm.botox||{}).reduce(function(s,v){return s+(parseFloat(v)||0);},0)||0)>0?(Object.values(atForm.botox||{}).reduce(function(s,v){return s+(parseFloat(v)||0);},0))+' U':'—'
+              (function(){var bt=Object.values(atForm.botox||{}).reduce(function(s,v){return s+(parseFloat(v)||0);},0);return bt>0?bt+' U':'—';})()
             )
           )
         ),
-        ['Toxina Botulínica','Preenchimento Facial','Skinbooster','Bioestimulador de Colágeno','Microagulhamento com PDRN'].indexOf(atForm.proc)>=0&&h('div',{style:{background:'#f5eeff',borderRadius:12,padding:'14px',marginBottom:15}},
+        ['Toxina Botulínica','Preenchimento Facial','Skinbooster','Bioestimulador de Colágeno','Microagulhamento com PDRN','Microagulhamento Facial'].indexOf(atForm.proc)>=0&&h('div',{style:{background:'#f5eeff',borderRadius:12,padding:'14px',marginBottom:15}},
           h('div',{className:'c-lbl'},'🧴 Produto Utilizado'),
-          h(Field,{label:'Nome do produto'},h('input',{className:'inp',placeholder:'Ex: Botox, Juvederm...',value:atForm.produto||'',onChange:function(e){setAtForm(function(f){return Object.assign({},f,{produto:e.target.value});});}})),
-          h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
+          h(Field,{label:'Nome do produto'},h('input',{className:'inp',placeholder:atForm.proc==='Microagulhamento Facial'?'Ex: sérum, ativo usado...':atForm.proc==='Microagulhamento com PDRN'?'Ex: PDRN, Rejuran...':'Ex: Botox, Juvederm...',value:atForm.produto||'',onChange:function(e){setAtForm(function(f){return Object.assign({},f,{produto:e.target.value});});}})),
+          ['Microagulhamento Facial'].indexOf(atForm.proc)<0&&h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
             h(Field,{label:'Lote'},h('input',{className:'inp',placeholder:'Nº do lote',value:atForm.lote||'',onChange:function(e){setAtForm(function(f){return Object.assign({},f,{lote:e.target.value});});}})),
-            h(Field,{label:'Validade'},h('input',{type:'date',className:'inp',value:atForm.validade||'',onChange:function(e){setAtForm(function(f){return Object.assign({},f,{validade:e.target.value});})}}))
+            h(Field,{label:'Validade (MM/AAAA)'},h('input',{className:'inp',placeholder:'MM/AAAA',maxLength:7,value:atForm.validade||'',onChange:function(e){var v=e.target.value.replace(/\D/g,'').slice(0,6);if(v.length>2)v=v.replace(/(\d{2})(\d{0,4})/,'$1/$2');setAtForm(function(f){return Object.assign({},f,{validade:v});});}}))
           ),
           ['Preenchimento Facial','Skinbooster','Bioestimulador de Colágeno'].indexOf(atForm.proc)>=0&&h('div',null,
             h(Field,{label:'Região(ões) aplicada(s)'},h(MultiPills,{opts:atForm.proc==='Preenchimento Facial'?['Malar','Mento','Lábios','Bigode chinês','Mandíbula','Têmporas','Olheiras','Outro']:['Testa','Temporal','Bochechas','Malar','Olheiras','Nariz','Lábio superior','Queixo','Pescoço','Colo','Mãos'],val:atForm.regioes||[],onChange:function(v){setAtForm(function(f){return Object.assign({},f,{regioes:v});});}})),
@@ -795,9 +834,12 @@ function App(){
         h('hr',{className:'hr'}),
         h('div',{className:'c-lbl'},'💰 Financeiro'),
         h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
-          h(Field,{label:'Valor (R$)'},h('input',{type:'number',className:'inp',placeholder:'0,00',value:atForm.valor||'',onChange:function(e){setAtForm(function(f){return Object.assign({},f,{valor:e.target.value});});}})),
+          atForm.pagto==='Cartão de Crédito'
+            ?h(Field,{label:'Valor cobrado (R$)'},h('input',{type:'number',className:'inp',placeholder:'0,00',value:atForm.valorCobrado||'',onChange:function(e){setAtForm(function(f){return Object.assign({},f,{valorCobrado:e.target.value});});}}))
+            :h(Field,{label:'Valor (R$)'},h('input',{type:'number',className:'inp',placeholder:'0,00',value:atForm.valor||'',onChange:function(e){setAtForm(function(f){return Object.assign({},f,{valor:e.target.value});});}})),
           h(Field,{label:'Status'},h('select',{className:'inp',value:atForm.status||'pago',onChange:function(e){setAtForm(function(f){return Object.assign({},f,{status:e.target.value});});}},h('option',{value:'pago'},'✓ Pago'),h('option',{value:'pendente'},'⏳ Pendente')))
         ),
+        atForm.pagto==='Cartão de Crédito'&&h(Field,{label:'Valor recebido (líquido após taxa R$)'},h('input',{type:'number',className:'inp',placeholder:'0,00',value:atForm.valor||'',onChange:function(e){setAtForm(function(f){return Object.assign({},f,{valor:e.target.value});});}})),
         h(Field,{label:'Forma de pagamento'},h('select',{className:'inp',value:atForm.pagto||'PIX',onChange:function(e){setAtForm(function(f){return Object.assign({},f,{pagto:e.target.value});}); }},PAGTOS.map(function(p){return h('option',{key:p,value:p},p);}))),
         (atForm.pagto==='Cartão de Crédito'||atForm.pagto==='Parcelado no PIX')&&h(Field,{label:'Nº de parcelas'},h('select',{className:'inp',value:atForm.parcelas||'',onChange:function(e){setAtForm(function(f){return Object.assign({},f,{parcelas:e.target.value});}); }},h('option',{value:''},'Selecionar...'),[2,3,4,5,6,7,8,9,10,11,12].map(function(n){return h('option',{key:n,value:n},n+'x');}))),
 
@@ -820,10 +862,11 @@ function App(){
         h('button',{className:'btn',onClick:salvarAtend},editAtId?'✓ Salvar Edição':'Salvar Atendimento'),
         editAtId&&h('button',{className:'btn-out',style:{width:'100%',marginTop:8},onClick:function(){setAtForm(emptyAtend);setEditAtId(null);}},'Cancelar edição')
       ),
-      h('div',{style:{fontSize:11,fontWeight:700,color:'#6a5e4a',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:10}},'Histórico Recente'),
+      h('div',{style:{fontSize:11,fontWeight:700,color:'#6a5e4a',textTransform:'uppercase',letterSpacing:".8px",marginBottom:10}},'Histórico Recente'),
       atends.length===0&&h('div',{style:{textAlign:'center',padding:'30px',color:'#a09080',fontSize:13}},'Nenhum atendimento registrado.'),
       atends.slice(0,30).map(function(a){
         var c=clients.find(function(x){return String(x.id)===String(a.cid);});
+        var totalBotox=a.botox?Object.values(a.botox).reduce(function(s,v){return s+(parseFloat(v)||0);},0):0;
         return h('div',{key:a.id,style:{background:'#fff',borderRadius:14,padding:16,marginBottom:10,border:'1px solid #e0d8cc'}},
           h('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:8}},
             h('div',{className:'avatar',style:{width:34,height:34,fontSize:14}},c&&c.nome?c.nome[0]:'?'),
@@ -834,22 +877,29 @@ function App(){
             h('span',{style:tagStyle(a.cat)},(a.cat||'').split(' ')[0])
           ),
           h('div',{style:{fontWeight:700,fontSize:13,color:'#1e1a14',marginBottom:4}},a.proc||''),
-          a.obs&&h('div',{style:{fontSize:12,color:'#3a2e1e',lineHeight:1.6,marginBottom:6}},a.obs),
+          a.tipoRetoque&&a.proc==='Toxina Botulínica'&&h('div',{style:{fontSize:12,color:'#7a3a9a',fontWeight:600,marginBottom:4}},'Tipo: '+a.tipoRetoque.charAt(0).toUpperCase()+a.tipoRetoque.slice(1)),
+          totalBotox>0&&h('div',{style:{fontSize:12,color:'#6a5e4a',marginBottom:4}},'💉 Total: '+totalBotox+' U'),
+          (a.produto||a.lote||a.validade)&&h('div',{style:{fontSize:12,color:'#6a5e4a',marginBottom:4,lineHeight:1.6}},
+            (a.produto?'🧴 '+a.produto:'')+(a.lote?' · Lote: '+a.lote:'')+(a.validade?' · Val: '+a.validade:'')
+          ),
+          Array.isArray(a.regioes)&&a.regioes.length>0&&h('div',{style:{fontSize:12,color:'#6a5e4a',marginBottom:4}},'📍 '+a.regioes.join(', ')+(a.volume?' · '+a.volume+'ml':'')+(a.tecnica?' · '+a.tecnica:'')),
+          a.obs&&h('div',{style:{fontSize:12,color:'#3a2e1e',lineHeight:1.6,marginBottom:6,background:'#f7f4ef',borderRadius:8,padding:'8px 10px'}},a.obs),
           h('div',{style:{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',marginBottom:6}},
             a.valor&&h('span',{style:{fontSize:13,fontWeight:700,color:'#3a6a48'}},fmtR(a.valor)),
+            a.valorCobrado&&a.pagto==='Cartão de Crédito'&&h('span',{style:{fontSize:11,color:'#a09080'}},'(cobrado: '+fmtR(a.valorCobrado)+')'),
             a.pagto&&h('span',{style:{fontSize:11,color:'#6a5e4a'}},a.pagto+(a.parcelas?' '+a.parcelas+'x':'')),
             a.pagto!=='Parcelado no PIX'&&h('button',{onClick:function(){toggleStatus(a.id);},style:{marginLeft:'auto',fontSize:11,fontWeight:700,color:a.status==='pago'?'#3a6a48':'#a06a30',background:a.status==='pago'?'#eaf4ee':'#fdf0e0',border:'none',borderRadius:20,padding:'4px 12px',cursor:'pointer'}},a.status==='pago'?'✓ Pago':'⏳ Pendente')
           ),
           a.retorno&&h('div',{style:{fontSize:11,color:'#a07830',fontWeight:700,marginBottom:8}},'↩ Retorno: '+a.retorno),
           h('div',{style:{display:'flex',gap:8,borderTop:'1px solid #f0e8d8',paddingTop:10}},
             h('button',{onClick:function(){setAtForm(Object.assign({},emptyAtend,a));setEditAtId(a.id);},style:{flex:1,fontSize:12,fontWeight:600,color:'#a07830',background:'#fdf8e8',border:'1px solid #e0c870',borderRadius:8,padding:'8px',cursor:'pointer'}},'✏️ Editar'),
+            h('button',{onClick:function(){exportarEvolucao(a);},style:{flex:1,fontSize:12,fontWeight:600,color:'#7a3a9a',background:'#f5eeff',border:'1px solid #c8a8e0',borderRadius:8,padding:'8px',cursor:'pointer'}},'📄 PDF'),
             h('button',{onClick:function(){setDelConf({tipo:'atend',id:a.id});},style:{flex:1,fontSize:12,fontWeight:600,color:'#8a3a3a',background:'#fdf0ee',border:'1px solid #e0b0a8',borderRadius:8,padding:'8px',cursor:'pointer'}},'🗑️ Apagar')
           )
         );
       })
     ),
 
-    // AGENDA
     sec==='agenda'&&h('div',{className:'scroll'},
       h('div',{style:{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}},
         h('div',{className:'t-title'},'Agenda'),
@@ -883,7 +933,7 @@ function App(){
                 return h('div',{key:ag.id,onClick:function(){setAgForm(Object.assign({},ag));setEditAgId(ag.id);setAgModal(true);},style:{background:'#f7f4ef',borderRadius:8,padding:'8px 10px',border:'1px solid #e0d8cc',borderLeft:'3px solid '+cor,cursor:'pointer',minWidth:130,maxWidth:200,flex:'0 0 auto'}},
                   h('div',{style:{fontSize:11,color:'#a09080',marginBottom:2}},ag.hora),
                   h('div',{style:{fontWeight:700,fontSize:13,color:'#1e1a14',marginBottom:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},c&&c.nome?c.nome.split(' ').slice(0,2).join(' '):'—'),
-                  h('div',{style:{fontSize:11,color:'#6a5e4a',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:4}},ag.servico+(pAt?' · S '+(pAt.realizadas+1)+'/'+pAt.total:'')),
+                  h('div',{style:{fontSize:11,color:'#6a5e4a',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:4}},(Array.isArray(ag.servicos)&&ag.servicos.length>1?ag.servicos.join(', '):ag.servico)+(pAt?' · S '+(pAt.realizadas+1)+'/'+pAt.total:'')),
                   h('div',{style:{fontSize:10,fontWeight:700,color:cor}},stLabel[ag.status||'marcado'].toUpperCase())
                 );
               }),
@@ -910,7 +960,7 @@ function App(){
                 var pAt=PACOTES[ag.servico]?pacotes.find(function(p){return String(p.cid)===String(ag.cid)&&p.proc===ag.servico&&p.status==='ativo';}):null;
                 return h('div',{key:ag.id,onClick:function(){setAgForm(Object.assign({},ag));setEditAgId(ag.id);setAgModal(true);},style:{flex:1,background:bg,borderRadius:8,padding:'8px 12px',borderLeft:'4px solid '+cor,cursor:'pointer',minWidth:0}},
                   h('div',{style:{fontWeight:700,fontSize:14,color:'#1e1a14',marginBottom:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},c&&c.nome||'—'),
-                  h('div',{style:{fontSize:12,color:'#6a5e4a',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:4}},ag.servico+(pAt?' · S '+(pAt.realizadas+1)+'/'+pAt.total:'')),
+                  h('div',{style:{fontSize:12,color:'#6a5e4a',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',marginBottom:4}},(Array.isArray(ag.servicos)&&ag.servicos.length>1?ag.servicos.join(', '):ag.servico)+(pAt?' · S '+(pAt.realizadas+1)+'/'+pAt.total:'')),
                   h('div',{style:{display:'flex',gap:8,alignItems:'center'}},
                     h('span',{style:{fontSize:10,fontWeight:700,color:cor}},stLabel[ag.status||'marcado'].toUpperCase()),
                     h('div',{style:{display:'flex',gap:4,marginLeft:'auto'}},
@@ -926,7 +976,6 @@ function App(){
       )
     ),
 
-    // Modal agenda
     agModal&&h('div',{className:'modal-bg',onClick:function(){setAgModal(false);}},
       h('div',{className:'modal-box',onClick:function(e){e.stopPropagation();}},
         h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}},
@@ -938,7 +987,27 @@ function App(){
           h(Field,{label:'Data *'},h('input',{type:'date',className:'inp',value:agForm.data||'',onChange:function(e){setAgForm(function(f){return Object.assign({},f,{data:e.target.value});});}})),
           h(Field,{label:'Horário *'},h('select',{className:'inp',value:agForm.hora||'',onChange:function(e){setAgForm(function(f){return Object.assign({},f,{hora:e.target.value});}); }},h('option',{value:''},'Selecionar...'),HORAS.map(function(hor){return h('option',{key:hor,value:hor},hor);})))
         ),
-        h(Field,{label:'Serviço *'},h('select',{className:'inp',value:agForm.servico||'',onChange:function(e){setAgForm(function(f){return Object.assign({},f,{servico:e.target.value});}); }},h('option',{value:''},'Selecionar...'),Object.keys(CATS).map(function(cat){return h('optgroup',{key:cat,label:'── '+cat},CATS[cat].map(function(s){return h('option',{key:s,value:s},s);}));}))),
+        h(Field,{label:'Serviço(s) *'},
+          h('div',{style:{marginTop:4}},
+            Object.keys(CATS).map(function(cat){return h('div',{key:cat,style:{marginBottom:10}},
+              h('div',{style:{fontSize:10,fontWeight:700,color:catColor(cat),textTransform:'uppercase',letterSpacing:".8px",marginBottom:6}},cat),
+              h('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+                CATS[cat].map(function(s){
+                  var svcs=Array.isArray(agForm.servicos)?agForm.servicos:[];
+                  var sel=svcs.indexOf(s)>=0||(agForm.servico===s&&svcs.length===0);
+                  return h('div',{key:s,onClick:function(){
+                    var cur=Array.isArray(agForm.servicos)?agForm.servicos.slice():[];
+                    if(agForm.servico&&cur.length===0)cur=[agForm.servico];
+                    var nn=cur.indexOf(s)>=0?cur.filter(function(x){return x!==s;}):cur.concat([s]);
+                    var main=nn.length>0?nn[0]:'';
+                    setAgForm(function(f){return Object.assign({},f,{servicos:nn,servico:main});});
+                  },style:{fontSize:12,padding:'6px 12px',borderRadius:20,cursor:'pointer',fontFamily:"'Inter',sans-serif",fontWeight:sel?700:400,border:'1px solid '+(sel?'#a07830':'#e0d8cc'),background:sel?'linear-gradient(135deg,#a07830,#c9a84c)':'#f7f4ef',color:sel?'#fff':'#6a5e4a'}},
+                  (sel?'✓ ':'')+s);
+                })
+              )
+            );})
+          )
+        ),
 
         h(Field,{label:'Status'},h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',marginTop:4}},
           [['marcado','📌 Marcado','#fdf8e8','#a07830','#e0c870'],['confirmado','✅ Confirmado','#eaf4ee','#3a6a48','#b0d8c0'],['cancelado','❌ Cancelado','#fdf0ee','#8a3a3a','#e0b0a8']].map(function(v){
@@ -956,7 +1025,6 @@ function App(){
       )
     ),
 
-    // FINANCEIRO
     sec==='financeiro'&&h('div',{className:'scroll'},
       h('div',{className:'t-title'},'Financeiro'),h('div',{className:'t-sub'},'Controle de pagamentos'),
       h('div',{className:'card'},
@@ -1002,7 +1070,7 @@ function App(){
         );
       }),
       pacotes.length>0&&h('div',null,
-        h('div',{style:{fontSize:11,fontWeight:700,color:'#6a5e4a',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:10,marginTop:8}},'📦 Pacotes de Sessões'),
+        h('div',{style:{fontSize:11,fontWeight:700,color:'#6a5e4a',textTransform:'uppercase',letterSpacing:".8px",marginBottom:10,marginTop:8}},'📦 Pacotes de Sessões'),
         pacotes.map(function(p){
           var c=clients.find(function(x){return String(x.id)===String(p.cid);});
           var pct=Math.round((p.realizadas/p.total)*100);
@@ -1021,7 +1089,6 @@ function App(){
       )
     ),
 
-    // TERMOS
     sec==='termos'&&h('div',{className:'scroll'},
       h('div',{className:'t-title'},'Termos'),h('div',{className:'t-sub'},'Consentimento informado digital'),
       h('div',{className:'card'},
@@ -1064,8 +1131,7 @@ function App(){
               h('label',{style:{fontSize:13,color:'#5a3f35',lineHeight:1.5}},'Confirmo que a cliente leu, compreendeu e autorizou este termo para ',h('strong',null,termoForm.proc),'.')
             ),
             h(SigPad,{saved:termoForm.sig,onSave:function(sig){setTermoForm(function(f){return Object.assign({},f,{sig:sig});});},onClear:function(){setTermoForm(function(f){return Object.assign({},f,{sig:''});});}}),
-            // Modal tela cheia
-            lerTermo&&h('div',{style:{position:'fixed',inset:0,background:'#fff',zIndex:500,display:'flex',flexDirection:'column',overflowY:'auto',padding:'0 0 30px'}},
+                    lerTermo&&h('div',{style:{position:'fixed',inset:0,background:'#fff',zIndex:500,display:'flex',flexDirection:'column',overflowY:'auto',padding:'0 0 30px'}},
               h('div',{style:{background:'#a07830',padding:'16px 20px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}},
                 h('div',{style:{fontFamily:"'Cormorant Garamond',serif",fontSize:18,color:'#fff',fontWeight:600}},'Termo de Consentimento'),
                 h('button',{onClick:function(){setLerTermo(false);},style:{background:'rgba(255,255,255,0.2)',border:'none',borderRadius:8,padding:'8px 16px',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer'}},'✓ Fechar')
@@ -1141,8 +1207,7 @@ function App(){
       )
     ),
 
-    // MODAL EDITAR CLIENTE
-    editClient&&h('div',{className:'modal-bg',onClick:function(){setEditClient(null);}},
+        editClient&&h('div',{className:'modal-bg',onClick:function(){setEditClient(null);}},
       h('div',{className:'modal-box',onClick:function(e){e.stopPropagation();}},
         h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}},
           h('div',{style:{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:'#1e1a14'}},'Editar Cadastro'),
@@ -1151,7 +1216,7 @@ function App(){
         h(Field,{label:'Nome completo *'},h('input',{className:'inp',placeholder:'Nome da cliente',value:editClient.nome,onChange:function(e){setEditClient(function(f){return Object.assign({},f,{nome:e.target.value});});}})),
         h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
           h(Field,{label:'Telefone *'},h('input',{className:'inp',placeholder:'(11) 99999-0000',value:editClient.tel,onChange:function(e){setEditClient(function(f){return Object.assign({},f,{tel:fmtTel(e.target.value)});});}})),
-          h(Field,{label:'Data de nascimento'},h('input',{type:'date',className:'inp',value:editClient.nasc||'',onChange:function(e){setEditClient(function(f){return Object.assign({},f,{nasc:e.target.value});})}}))
+          h(Field,{label:'Data de nascimento'},h('input',{className:'inp',placeholder:'DD/MM/AAAA',maxLength:10,value:editClient.nasc||'',onChange:function(e){var v=e.target.value.replace(/\D/g,'').slice(0,8);if(v.length>4)v=v.replace(/(\d{2})(\d{2})(\d{0,4})/,'$1/$2/$3');else if(v.length>2)v=v.replace(/(\d{2})(\d{0,2})/,'$1/$2');setEditClient(function(f){return Object.assign({},f,{nasc:v});});}}))
         ),
         h(Field,{label:'CPF'},h('input',{className:'inp',placeholder:'000.000.000-00',value:editClient.cpf||'',onChange:function(e){var v=e.target.value.replace(/\D/g,'').slice(0,11);if(v.length>9)v=v.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/,'$1.$2.$3-$4');else if(v.length>6)v=v.replace(/(\d{3})(\d{3})(\d{0,3})/,'$1.$2.$3');else if(v.length>3)v=v.replace(/(\d{3})(\d{0,3})/,'$1.$2');setEditClient(function(f){return Object.assign({},f,{cpf:v});});}})),
         h(Field,{label:'E-mail'},h('input',{className:'inp',placeholder:'email@exemplo.com',value:editClient.email||'',onChange:function(e){setEditClient(function(f){return Object.assign({},f,{email:e.target.value});});}})),
@@ -1166,8 +1231,7 @@ function App(){
       )
     ),
 
-    // MODAL DELETE
-    delConf&&h('div',{className:'modal-bg',onClick:function(){setDelConf(null);}},
+        delConf&&h('div',{className:'modal-bg',onClick:function(){setDelConf(null);}},
       h('div',{className:'modal-box',onClick:function(e){e.stopPropagation();},style:{padding:'28px 24px 36px'}},
         h('div',{style:{fontFamily:"'Cormorant Garamond',serif",fontSize:22,color:'#1e1a14',marginBottom:10}},'Confirmar exclusão'),
         h('div',{style:{fontSize:14,color:'#6a5e4a',marginBottom:24,lineHeight:1.6}},
@@ -1185,8 +1249,7 @@ function App(){
       )
     ),
 
-    // NAV
-    h('nav',{className:'nav'},
+        h('nav',{className:'nav'},
       navItems.map(function(item){return h('button',{key:item.k,className:'nav-btn'+(sec===item.k?' active':''),onClick:function(){setSec(item.k);}},h('span',{style:{fontSize:18}},item.icon),item.l);})
     )
   );
