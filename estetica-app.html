@@ -277,7 +277,7 @@ function CampoAnamnese(props){
   if(campo.t==='pills')return h(Field,{label:campo.l},h(Pills,{opts:campo.opts,val:val,onChange:props.setVal}));
   if(campo.t==='multipills')return h(Field,{label:campo.l},h(MultiPills,{opts:campo.opts,val:val,onChange:props.setVal}));
   if(campo.t==='yn')return h(Field,{label:campo.l},h(YesNo,{val:val||'nao',onChange:props.setVal}));
-  if(campo.t==='date')return h(Field,{label:campo.l},h('input',{type:'date',className:'inp',value:val,onChange:function(e){props.setVal(e.target.value);}}));
+  if(campo.t==='date')return h(Field,{label:campo.l},h('input',{className:'inp',placeholder:'DD/MM/AAAA',maxLength:10,value:val||'',onChange:function(e){var v=e.target.value.replace(/\D/g,'').slice(0,8);if(v.length>4)v=v.replace(/(\d{2})(\d{2})(\d{0,4})/,'$1/$2/$3');else if(v.length>2)v=v.replace(/(\d{2})(\d{0,2})/,'$1/$2');props.setVal(v);}}));
   if(campo.t==='area')return h(Field,{label:campo.l},h('textarea',{rows:3,className:'inp',placeholder:campo.ph||'',value:val,onChange:function(e){props.setVal(e.target.value);},style:{resize:'vertical'}}));
   return h(Field,{label:campo.l},h('input',{className:'inp',placeholder:campo.ph||'',value:val,onChange:function(e){props.setVal(e.target.value);}}));
 }
@@ -984,7 +984,7 @@ function App(){
         ),
         h(Field,{label:'Cliente'},h('select',{className:'inp',value:agForm.cid||'',onChange:function(e){setAgForm(function(f){return Object.assign({},f,{cid:e.target.value});}); }},h('option',{value:''},'Selecionar...'),clients.map(function(c){return h('option',{key:c.id,value:c.id},c.nome);}))),
         h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},
-          h(Field,{label:'Data *'},h('input',{type:'date',className:'inp',value:agForm.data||'',onChange:function(e){setAgForm(function(f){return Object.assign({},f,{data:e.target.value});});}})),
+          h(Field,{label:'Data *'},h('input',{className:'inp',placeholder:'DD/MM/AAAA',maxLength:10,value:agForm.data||'',onChange:function(e){var v=e.target.value.replace(/\D/g,'').slice(0,8);if(v.length>4)v=v.replace(/(\d{2})(\d{2})(\d{0,4})/,'$1/$2/$3');else if(v.length>2)v=v.replace(/(\d{2})(\d{0,2})/,'$1/$2');setAgForm(function(f){return Object.assign({},f,{data:v});});},onFocus:function(){if(!agForm.data){var n=new Date();var d=String(n.getDate()).padStart(2,'0');var m=String(n.getMonth()+1).padStart(2,'0');var a=n.getFullYear();setAgForm(function(f){return Object.assign({},f,{data:d+'/'+m+'/'+a});}); }}})),
           h(Field,{label:'Horário *'},h('select',{className:'inp',value:agForm.hora||'',onChange:function(e){setAgForm(function(f){return Object.assign({},f,{hora:e.target.value});}); }},h('option',{value:''},'Selecionar...'),HORAS.map(function(hor){return h('option',{key:hor,value:hor},hor);})))
         ),
         h(Field,{label:'Serviço(s) *'},
