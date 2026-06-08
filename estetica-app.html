@@ -636,8 +636,8 @@ function App(){
       );})
     ),
 
-    selClient&&h('div',{className:'modal-bg',onClick:function(){setSelClient(null);}},
-      h('div',{className:'modal-box',style:{padding:'0 0 36px'},onClick:function(e){e.stopPropagation();}},
+    selClient&&h('div',{className:'modal-bg',style:{alignItems:'center'},onClick:function(){setSelClient(null);}},
+      h('div',{className:'modal-box',style:{padding:'0 0 36px',borderRadius:22,maxHeight:'90vh'},onClick:function(e){e.stopPropagation();}},
         (function(){
           var c=clients.find(function(x){return x.id===selClient.id;})||selClient;
           var fotos=c.fotos||[];var anams=c.anamPorSvc||{};
