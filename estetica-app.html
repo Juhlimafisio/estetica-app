@@ -390,6 +390,7 @@ function App(){
   var fcs=useState(null);var fotoCtx=fcs[0],setFotoCtx=fcs[1];
   var ecs=useState(null);var editClient=ecs[0],setEditClient=ecs[1];
   var lts=useState(false);var lerTermo=lts[0],setLerTermo=lts[1];
+  var pas=useState('ficha');var perfilAba=pas[0],setPerfilAba=pas[1];
 
   useEffect(function(){saveData('est_clients',clients);},[clients]);
   useEffect(function(){saveData('est_atends',atends);},[atends]);
@@ -636,99 +637,115 @@ function App(){
     ),
 
     selClient&&h('div',{className:'modal-bg',onClick:function(){setSelClient(null);}},
-      h('div',{className:'modal-box',onClick:function(e){e.stopPropagation();}},
-        h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}},
-          h('div',{style:{fontFamily:"'Cormorant Garamond',serif",fontSize:20,color:'#1e1a14'}},(clients.find(function(x){return x.id===selClient.id;})||selClient).nome),
-          h('button',{onClick:function(){setSelClient(null);},style:{background:'none',border:'none',fontSize:24,color:'#a09080',cursor:'pointer'}},'×')
-        ),
+      h('div',{className:'modal-box',style:{padding:'0 0 36px'},onClick:function(e){e.stopPropagation();}},
         (function(){
           var c=clients.find(function(x){return x.id===selClient.id;})||selClient;
           var fotos=c.fotos||[];var anams=c.anamPorSvc||{};
           var cAtends=atends.filter(function(a){return String(a.cid)===String(c.id);});
           var cTermos=termos.filter(function(t){return String(t.nome)===String(c.nome);});
           var LABELS={tipoPele:'Tipo de pele',fototipo:'Fototipo',protetor:'Protetor solar',rosácea:'Rosácea/dermatite',herpes:'Herpes labial',gestante:'Gestante/lactante',alergia:'Alergia',alergiaDesc:'Quais alergias',medicacao:'Medicação',medicacaoDesc:'Quais medicações',queixa:'Queixa',obs:'Observações',autoimune:'Doença autoimune',autoimuneDesc:'Qual doença',anticoag:'Anticoagulante/AAS',implante:'Implante/prótese',procAnterior:'Proc. anterior',procAnteriorDesc:'Quais procedimentos',neuromusc:'Doença neuromuscular',isotret:'Isotretinoína',queloide:'Quelóide',alergiaSalmao:'Alergia a salmão',regiaoPreench:'Regiões a tratar',nivelAcne:'Nível de acne',tempoAcne:'Tempo de acne',localAcne:'Localização',tipoMancha:'Tipo de mancha',regiaoMancha:'Região das manchas',tempoMancha:'Tempo das manchas',trombose:'Trombose',marcapasso:'Marcapasso',cardiaco:'Cardíaco',neoplasia:'Neoplasia',cirurgia:'Cirurgia recente',cirurgiaDesc:'Qual cirurgia',gestacao:'Gestação',gestacaoDesc:'Última gestação',cirurgiaReal:'Cirurgia realizada',dataCirurgia:'Data da cirurgia',cirurgiao:'Cirurgião',liberacao:'Liberação médica',drenagem:'Drenagem anterior',intercorrencia:'Intercorrências'};
+          var abas=[{k:'ficha',l:'Ficha'},{k:'anamneses',l:'Anamneses'},{k:'evolucoes',l:'Evoluções'},{k:'termos',l:'Termos'}];
           return h('div',null,
-            h('div',{style:{fontFamily:"'Inter',sans-serif",fontSize:13,color:'#6a5e4a',marginBottom:3}},'📱 '+c.tel),
-            c.cpf&&h('div',{style:{fontFamily:"'Inter',sans-serif",fontSize:13,color:'#6a5e4a',marginBottom:3}},'🪪 '+c.cpf),
-            c.nasc&&h('div',{style:{fontFamily:"'Inter',sans-serif",fontSize:13,color:'#6a5e4a',marginBottom:3}},'🎂 '+c.nasc),
-            c.email&&h('div',{style:{fontFamily:"'Inter',sans-serif",fontSize:13,color:'#6a5e4a',marginBottom:8}},'✉️ '+c.email),
-
-            Object.keys(anams).length>0&&h('div',null,
-              h('hr',{className:'hr'}),
-              h('div',{style:{fontSize:11,fontWeight:700,color:'#a09080',textTransform:'uppercase',marginBottom:8}},'📋 Anamneses'),
-              Object.entries(anams).map(function(e){var sv=e[0],d=e[1];
-                var campos=Object.entries(d).filter(function(f){return ['cat','data'].indexOf(f[0])<0&&f[1]!==undefined&&f[1]!==''&&f[1]!==null&&f[1]!==false;});
-                return h('div',{key:sv,style:{background:'#f7f4ef',borderRadius:10,padding:'10px 14px',marginBottom:8,borderLeft:'2px solid #c9a84c'}},
-                  h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}},
-                    h('div',{style:{fontFamily:"'Inter',sans-serif",fontWeight:700,fontSize:13,color:'#1e1a14'}},sv),
-                    h('button',{onClick:function(){setCidAnam(c.id);setSvc(sv);var cp=Object.assign({},d);delete cp.cat;delete cp.data;setAnam(cp);setAnamStep(2);setSelClient(null);},style:{fontSize:11,fontWeight:700,color:'#a07830',background:'#fff',border:'1px solid #e0c870',borderRadius:8,padding:'4px 10px',cursor:'pointer'}},'✏️ Editar')
-                  ),
-                  h('div',{style:{fontSize:11,color:'#a09080',marginBottom:8}},'Preenchida em '+(d.data||'')),
-                  campos.map(function(f){
-                    var lbl=LABELS[f[0]]||f[0];
-                    var val=Array.isArray(f[1])?f[1].join(', '):String(f[1]);
-                    var isSim=val==='sim';var isNao=val==='nao';
-                    return h('div',{key:f[0],style:{display:'flex',gap:8,alignItems:'flex-start',marginBottom:5,fontSize:12}},
-                      h('span',{style:{fontWeight:700,color:'#8a6a5a',minWidth:130,flexShrink:0}},lbl+':'),
-                      h('span',{style:{color:isSim?'#3a6a48':isNao?'#a09080':'#1e1a14',fontWeight:isSim?700:400}},isSim?'✓ Sim':isNao?'✗ Não':val)
-                    );
-                  })
-                );
-              })
+            h('div',{style:{padding:'20px 20px 0',borderBottom:'1px solid #e0d8cc'}},
+              h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}},
+                h('div',null,
+                  h('div',{style:{fontFamily:"'Cormorant Garamond',serif",fontSize:20,color:'#1e1a14',fontWeight:600}},c.nome),
+                  h('div',{style:{fontSize:11,color:'#a09080',marginTop:2}},c.tel)
+                ),
+                h('button',{onClick:function(){setSelClient(null);},style:{background:'none',border:'none',fontSize:24,color:'#a09080',cursor:'pointer'}},'×')
+              ),
+              h('div',{style:{display:'flex',gap:0}},
+                abas.map(function(a){
+                  var ativo=perfilAba===a.k;
+                  return h('button',{key:a.k,onClick:function(){setPerfilAba(a.k);},style:{flex:1,fontFamily:"'Inter',sans-serif",fontSize:12,fontWeight:700,padding:'10px 4px',border:'none',borderBottom:'2px solid '+(ativo?'#a07830':'transparent'),background:'transparent',color:ativo?'#a07830':'#a09080',cursor:'pointer'}},a.l);
+                })
+              )
             ),
+            h('div',{style:{padding:'16px 20px 0',maxHeight:'60vh',overflowY:'auto'}},
 
-            h('hr',{className:'hr'}),
-            h('div',{style:{fontSize:11,fontWeight:700,color:'#a09080',textTransform:'uppercase',marginBottom:10}},'📸 Fotos Antes / Depois'),
-            ['antes','depois'].map(function(tipo){
-              var lista=fotos.filter(function(f){return f.tipo===tipo;});
-              return h('div',{key:tipo,style:{marginBottom:12}},
-                h('div',{style:{fontFamily:"'Inter',sans-serif",fontSize:12,fontWeight:700,color:'#6a5e4a',marginBottom:8}},tipo.charAt(0).toUpperCase()+tipo.slice(1)),
-                h('div',{style:{display:'flex',gap:10,overflowX:'auto',paddingBottom:4}},
-                  h('div',{onClick:function(){setFotoCtx({cid:c.id,tipo:tipo});fileRef.current.click();},style:{width:90,height:90,borderRadius:10,border:'1px dashed #e0d8cc',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',background:'#f7f4ef',gap:4,flexShrink:0}},h('span',{style:{fontSize:22}},'+'),h('span',{style:{fontSize:10,color:'#a09080'}},tipo)),
-                  lista.map(function(f){return h('div',{key:f.id,style:{position:'relative',flexShrink:0}},
-                    h('img',{src:f.url,style:{width:90,height:90,borderRadius:10,objectFit:'cover',border:'1px solid #e0d8cc'},alt:tipo}),
-                    h('div',{style:{fontSize:9,color:'#a09080',textAlign:'center',marginTop:2}},f.data),
-                    h('button',{onClick:function(){setClients(function(prev){return prev.map(function(x){return x.id===c.id?Object.assign({},x,{fotos:x.fotos.filter(function(fot){return fot.id!==f.id;})}):x;});});},style:{position:'absolute',top:-6,right:-6,background:'#c05050',color:'#fff',border:'none',borderRadius:'50%',width:18,height:18,fontSize:11,cursor:'pointer'}},'×')
-                  );})
+              perfilAba==='ficha'&&h('div',null,
+                h('div',{style:{background:'#f7f4ef',borderRadius:12,padding:'14px',marginBottom:14}},
+                  h('div',{style:{fontSize:13,color:'#6a5e4a',marginBottom:4}},'📱 '+c.tel),
+                  c.cpf&&h('div',{style:{fontSize:13,color:'#6a5e4a',marginBottom:4}},'🪪 '+c.cpf),
+                  c.nasc&&h('div',{style:{fontSize:13,color:'#6a5e4a',marginBottom:4}},'🎂 '+c.nasc),
+                  c.email&&h('div',{style:{fontSize:13,color:'#6a5e4a'}},'✉️ '+c.email)
+                ),
+                h('div',{style:{fontSize:11,fontWeight:700,color:'#a09080',textTransform:'uppercase',marginBottom:10}},'📸 Fotos Antes / Depois'),
+                ['antes','depois'].map(function(tipo){
+                  var lista=fotos.filter(function(f){return f.tipo===tipo;});
+                  return h('div',{key:tipo,style:{marginBottom:12}},
+                    h('div',{style:{fontSize:12,fontWeight:700,color:'#6a5e4a',marginBottom:8}},tipo.charAt(0).toUpperCase()+tipo.slice(1)),
+                    h('div',{style:{display:'flex',gap:10,overflowX:'auto',paddingBottom:4}},
+                      h('div',{onClick:function(){setFotoCtx({cid:c.id,tipo:tipo});fileRef.current.click();},style:{width:90,height:90,borderRadius:10,border:'1px dashed #e0d8cc',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',cursor:'pointer',background:'#f7f4ef',gap:4,flexShrink:0}},h('span',{style:{fontSize:22}},'+'),h('span',{style:{fontSize:10,color:'#a09080'}},tipo)),
+                      lista.map(function(f){return h('div',{key:f.id,style:{position:'relative',flexShrink:0}},
+                        h('img',{src:f.url,style:{width:90,height:90,borderRadius:10,objectFit:'cover',border:'1px solid #e0d8cc'},alt:tipo}),
+                        h('div',{style:{fontSize:9,color:'#a09080',textAlign:'center',marginTop:2}},f.data),
+                        h('button',{onClick:function(){setClients(function(prev){return prev.map(function(x){return x.id===c.id?Object.assign({},x,{fotos:x.fotos.filter(function(fot){return fot.id!==f.id;})}):x;});});},style:{position:'absolute',top:-6,right:-6,background:'#c05050',color:'#fff',border:'none',borderRadius:'50%',width:18,height:18,fontSize:11,cursor:'pointer'}},'×')
+                      );})
+                    )
+                  );
+                }),
+                h('div',{style:{display:'flex',gap:8,marginTop:14}},
+                  h('button',{className:'btn-out',style:{flex:1,fontSize:13,padding:'10px'},onClick:function(){setEditClient({nome:c.nome,tel:c.tel,nasc:c.nasc||'',cpf:c.cpf||'',email:c.email||'',id:c.id});setSelClient(null);}},'✏️ Editar cadastro'),
+                  h('button',{className:'btn',style:{flex:1,fontSize:13,padding:'10px'},onClick:function(){setAtForm(Object.assign({},emptyAtend,{cid:String(c.id)}));setEditAtId(null);setSelClient(null);setSec('atendimentos');}},'🗓️ Nova evolução')
                 )
-              );
-            }),
+              ),
 
-            h('hr',{className:'hr'}),
-            h('div',{style:{fontSize:11,fontWeight:700,color:'#a09080',textTransform:'uppercase',marginBottom:8}},'🗓️ Histórico de Evoluções'),
-            cAtends.length===0
-              ?h('div',{style:{fontSize:13,color:'#a09080',marginBottom:8}},'Nenhuma evolução registrada.')
-              :cAtends.map(function(a){
-                var totalBotox=a.botox?Object.values(a.botox).reduce(function(s,v){return s+(parseFloat(v)||0);},0):0;
-                return h('div',{key:a.id,style:{marginBottom:10,padding:'12px 14px',background:'#f7f4ef',borderRadius:10,borderLeft:'3px solid #c9a84c'}},
-                  h('div',{style:{display:'flex',gap:8,alignItems:'center',marginBottom:4,flexWrap:'wrap'}},h('span',{style:tagStyle(a.cat)},a.cat),h('span',{style:{fontSize:11,color:'#a09080'}},a.data+(SESSOES_CATS.indexOf(a.proc)>=0&&a.sessao?' · Sessão '+a.sessao:''))),
-                  h('div',{style:{fontWeight:700,fontSize:13,color:'#1e1a14',marginBottom:4}},a.proc),
-                  a.tipoRetoque&&a.proc==='Toxina Botulínica'&&h('div',{style:{fontSize:12,color:'#7a3a9a',fontWeight:600,marginBottom:3}},'Tipo: '+(a.tipoRetoque==='retoque'?'Retoque':'Aplicação')),
-                  totalBotox>0&&h('div',{style:{fontSize:12,color:'#6a5e4a',marginBottom:3}},'💉 Total: '+totalBotox+' U'),
-                  (a.produto||a.lote)&&h('div',{style:{fontSize:12,color:'#6a5e4a',marginBottom:3}},(a.produto?'🧴 '+a.produto:'')+(a.lote?' · Lote: '+a.lote:'')+(a.validade?' · Val: '+a.validade:'')),
-                  Array.isArray(a.regioes)&&a.regioes.length>0&&h('div',{style:{fontSize:12,color:'#6a5e4a',marginBottom:3}},'📍 '+a.regioes.join(', ')+(a.volume?' · '+a.volume+'ml':'')+(a.tecnica?' · '+a.tecnica:'')),
-                  a.obs&&h('div',{style:{fontSize:12,color:'#3a2e1e',lineHeight:1.6,marginBottom:4,borderTop:'1px solid #e8e0d0',paddingTop:6,marginTop:4}},a.obs),
-                  a.retorno&&h('div',{style:{fontSize:11,color:'#a07830',fontWeight:700,marginTop:4}},'↩ Retorno: '+a.retorno),
-                  h('div',{style:{fontSize:11,color:'#6a5e4a',marginTop:4}},fmtR(a.valor)+(a.pagto?' · '+a.pagto:'')+(a.parcelas?' '+a.parcelas+'x':''))
-                );
-              }),
+              perfilAba==='anamneses'&&h('div',null,
+                Object.keys(anams).length===0
+                  ?h('div',{style:{textAlign:'center',padding:'30px',color:'#a09080',fontSize:13}},'Nenhuma anamnese preenchida.')
+                  :Object.entries(anams).map(function(e){var sv=e[0],d=e[1];
+                    var campos=Object.entries(d).filter(function(f){return ['cat','data'].indexOf(f[0])<0&&f[1]!==undefined&&f[1]!==''&&f[1]!==null&&f[1]!==false;});
+                    return h('div',{key:sv,style:{background:'#f7f4ef',borderRadius:12,padding:'12px 14px',marginBottom:10,borderLeft:'3px solid #c9a84c'}},
+                      h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}},
+                        h('div',{style:{fontWeight:700,fontSize:14,color:'#1e1a14'}},sv),
+                        h('button',{onClick:function(){setCidAnam(c.id);setSvc(sv);var cp=Object.assign({},d);delete cp.cat;delete cp.data;setAnam(cp);setAnamStep(2);setSelClient(null);},style:{fontSize:11,fontWeight:700,color:'#a07830',background:'#fff',border:'1px solid #e0c870',borderRadius:8,padding:'4px 10px',cursor:'pointer'}},'✏️ Editar')
+                      ),
+                      h('div',{style:{fontSize:11,color:'#a09080',marginBottom:8}},'Preenchida em '+(d.data||'')),
+                      campos.map(function(f){
+                        var lbl=LABELS[f[0]]||f[0];
+                        var val=Array.isArray(f[1])?f[1].join(', '):String(f[1]);
+                        var isSim=val==='sim';var isNao=val==='nao';
+                        return h('div',{key:f[0],style:{display:'flex',gap:8,alignItems:'flex-start',marginBottom:5,fontSize:12}},
+                          h('span',{style:{fontWeight:700,color:'#8a6a5a',minWidth:130,flexShrink:0}},lbl+':'),
+                          h('span',{style:{color:isSim?'#3a6a48':isNao?'#a09080':'#1e1a14',fontWeight:isSim?700:400}},isSim?'✓ Sim':isNao?'✗ Não':val)
+                        );
+                      })
+                    );
+                  }),
+                h('button',{className:'btn-out',style:{width:'100%',marginTop:8},onClick:function(){setCidAnam(c.id);setSvc(null);setAnam({});setAnamStep(1);setSelClient(null);}},'+ Nova anamnese')
+              ),
 
-            cTermos.length>0&&h('div',null,
-              h('hr',{className:'hr'}),
-              h('div',{style:{fontSize:11,fontWeight:700,color:'#a09080',textTransform:'uppercase',marginBottom:8}},'📝 Termos Assinados'),
-              cTermos.map(function(t){return h('div',{key:t.id,style:{fontSize:12,color:'#6a5e4a',background:'#f7f4ef',borderRadius:8,padding:'8px 12px',marginBottom:6,display:'flex',justifyContent:'space-between',alignItems:'center'}},
-                h('div',null,h('div',{style:{fontWeight:700,color:'#1e1a14'}},t.proc),h('div',{style:{fontSize:11,color:'#a09080'}},t.data)),
-                h('span',{style:{fontSize:11,fontWeight:700,color:'#3a6a48',background:'#eaf4ee',borderRadius:20,padding:'3px 10px'}},'✓ Assinado')
-              );})
-            ),
+              perfilAba==='evolucoes'&&h('div',null,
+                cAtends.length===0
+                  ?h('div',{style:{textAlign:'center',padding:'30px',color:'#a09080',fontSize:13}},'Nenhuma evolução registrada.')
+                  :cAtends.map(function(a){
+                    var totalBotox=a.botox?Object.values(a.botox).reduce(function(s,v){return s+(parseFloat(v)||0);},0):0;
+                    return h('div',{key:a.id,style:{marginBottom:10,padding:'12px 14px',background:'#f7f4ef',borderRadius:12,borderLeft:'3px solid #c9a84c'}},
+                      h('div',{style:{display:'flex',gap:8,alignItems:'center',marginBottom:4,flexWrap:'wrap'}},h('span',{style:tagStyle(a.cat)},a.cat),h('span',{style:{fontSize:11,color:'#a09080'}},a.data+(SESSOES_CATS.indexOf(a.proc)>=0&&a.sessao?' · Sessão '+a.sessao:''))),
+                      h('div',{style:{fontWeight:700,fontSize:13,color:'#1e1a14',marginBottom:4}},a.proc),
+                      a.tipoRetoque&&a.proc==='Toxina Botulínica'&&h('div',{style:{fontSize:12,color:'#7a3a9a',fontWeight:600,marginBottom:3}},'Tipo: '+(a.tipoRetoque==='retoque'?'Retoque':'Aplicação')),
+                      totalBotox>0&&h('div',{style:{fontSize:12,color:'#6a5e4a',marginBottom:3}},'💉 Total: '+totalBotox+' U'),
+                      (a.produto||a.lote)&&h('div',{style:{fontSize:12,color:'#6a5e4a',marginBottom:3}},(a.produto?'🧴 '+a.produto:'')+(a.lote?' · Lote: '+a.lote:'')+(a.validade?' · Val: '+a.validade:'')),
+                      Array.isArray(a.regioes)&&a.regioes.length>0&&h('div',{style:{fontSize:12,color:'#6a5e4a',marginBottom:3}},'📍 '+a.regioes.join(', ')+(a.volume?' · '+a.volume+'ml':'')+(a.tecnica?' · '+a.tecnica:'')),
+                      a.obs&&h('div',{style:{fontSize:12,color:'#3a2e1e',lineHeight:1.6,borderTop:'1px solid #e8e0d0',paddingTop:6,marginTop:4,marginBottom:4}},a.obs),
+                      a.retorno&&h('div',{style:{fontSize:11,color:'#a07830',fontWeight:700,marginTop:4}},'↩ Retorno: '+a.retorno),
+                      h('div',{style:{fontSize:11,color:'#6a5e4a',marginTop:4}},fmtR(a.valor)+(a.pagto?' · '+a.pagto:'')+(a.parcelas?' '+a.parcelas+'x':''))
+                    );
+                  }),
+                h('button',{className:'btn',style:{width:'100%',marginTop:8},onClick:function(){setAtForm(Object.assign({},emptyAtend,{cid:String(c.id)}));setEditAtId(null);setSelClient(null);setSec('atendimentos');}},'+ Nova evolução')
+              ),
 
-            h('hr',{className:'hr'}),
-            h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',marginTop:4}},
-              h('button',{className:'btn-out',style:{flex:1,fontSize:13,padding:'10px'},onClick:function(){setEditClient({nome:c.nome,tel:c.tel,nasc:c.nasc||'',cpf:c.cpf||'',email:c.email||'',id:c.id});setSelClient(null);}},'✏️ Editar'),
-              h('button',{className:'btn-out',style:{flex:1,fontSize:13,padding:'10px'},onClick:function(){setCidAnam(c.id);setSvc(null);setAnam({});setAnamStep(1);setSelClient(null);}},'📋 Anamnese'),
-              h('button',{className:'btn-out',style:{flex:1,fontSize:13,padding:'10px'},onClick:function(){setAtForm(Object.assign({},emptyAtend,{cid:String(c.id)}));setEditAtId(null);setSelClient(null);setSec('atendimentos');}},'🗓️ Evolução')
-            ),
-            h('button',{className:'btn',style:{marginTop:8},onClick:function(){setTermoForm({cid:String(c.id),proc:'',assinado:false,sig:''});setSelClient(null);setSec('termos');}},'📝 Gerar Termo')
+              perfilAba==='termos'&&h('div',null,
+                cTermos.length===0
+                  ?h('div',{style:{textAlign:'center',padding:'30px',color:'#a09080',fontSize:13}},'Nenhum termo assinado.')
+                  :cTermos.map(function(t){return h('div',{key:t.id,style:{background:'#f7f4ef',borderRadius:12,padding:'12px 14px',marginBottom:8,display:'flex',justifyContent:'space-between',alignItems:'center',borderLeft:'3px solid #3a6a48'}},
+                    h('div',null,h('div',{style:{fontWeight:700,fontSize:13,color:'#1e1a14'}},t.proc),h('div',{style:{fontSize:11,color:'#a09080',marginTop:2}},t.data)),
+                    h('span',{style:{fontSize:11,fontWeight:700,color:'#3a6a48',background:'#eaf4ee',borderRadius:20,padding:'3px 10px'}},'✓ Assinado')
+                  );}),
+                h('button',{className:'btn',style:{width:'100%',marginTop:8},onClick:function(){setTermoForm({cid:String(c.id),proc:'',assinado:false,sig:''});setSelClient(null);setSec('termos');}},'📝 Gerar Novo Termo')
+              )
+            )
           );
         })()
       )
@@ -1025,13 +1042,15 @@ function App(){
             h('div',{style:{display:'flex',flexDirection:'column',gap:10}},
               h('button',{style:{width:'100%',textAlign:'left',fontFamily:"'Inter',sans-serif",fontSize:14,fontWeight:600,color:'#1e1a14',background:'#f7f4ef',border:'1px solid #e0d8cc',borderRadius:12,padding:'14px 16px',cursor:'pointer',display:'flex',alignItems:'center',gap:10},onClick:function(){setAgForm(Object.assign({},ag));setEditAgId(ag.id);setAgCardModal(null);setAgModal(true);}},h('span',{style:{fontSize:18}},'✏️'),'Editar agendamento'),
               h('button',{style:{width:'100%',textAlign:'left',fontFamily:"'Inter',sans-serif",fontSize:14,fontWeight:600,color:'#1e1a14',background:'#f7f4ef',border:'1px solid #e0d8cc',borderRadius:12,padding:'14px 16px',cursor:'pointer',display:'flex',alignItems:'center',gap:10},onClick:function(){setEditClient({nome:c.nome,tel:c.tel,nasc:c.nasc||'',cpf:c.cpf||'',email:c.email||'',id:c.id});setAgCardModal(null);}},h('span',{style:{fontSize:18}},'👤'),'Cadastro do paciente'),
-              h('button',{style:{width:'100%',textAlign:'left',fontFamily:"'Inter',sans-serif",fontSize:14,fontWeight:600,color:'#1e1a14',background:'#f7f4ef',border:'1px solid #e0d8cc',borderRadius:12,padding:'14px 16px',cursor:'pointer',display:'flex',alignItems:'center',gap:10},onClick:function(){setSelClient(c);setAgCardModal(null);}},h('span',{style:{fontSize:18}},'👁️'),'Ver perfil do paciente'),
+              h('button',{style:{width:'100%',textAlign:'left',fontFamily:"'Inter',sans-serif",fontSize:14,fontWeight:600,color:'#1e1a14',background:'#f7f4ef',border:'1px solid #e0d8cc',borderRadius:12,padding:'14px 16px',cursor:'pointer',display:'flex',alignItems:'center',gap:10},onClick:function(){setPerfilAba('ficha');setSelClient(c);setAgCardModal(null);}},h('span',{style:{fontSize:18}},'👁️'),'Ver perfil do paciente'),
               h('button',{style:{width:'100%',textAlign:'left',fontFamily:"'Inter',sans-serif",fontSize:14,fontWeight:600,color:'#25a244',background:'#eaf6ee',border:'1px solid #b0d8c0',borderRadius:12,padding:'14px 16px',cursor:'pointer',display:'flex',alignItems:'center',gap:10},onClick:function(){
                 var tel=c.tel?c.tel.replace(/\D/g,''):'';
                 if(!tel)return showToast('⚠️ Cliente sem telefone cadastrado.');
                 if(tel.length===10||tel.length===11){tel='55'+tel;}
                 var svcsTexto=svcs.join(' e ');
-                var msg='Olá '+c.nome.split(' ')[0]+'! 😊 Passando para confirmar seu agendamento para *'+svcsTexto+'* no dia *'+ag.data+'* às *'+ag.hora+'* com Juliana Lima. Confirma sua presença?';
+                var dataFmt=ag.data;
+                if(ag.data&&ag.data.indexOf('-')>=0){var dp=ag.data.split('-');dataFmt=dp[2]+'/'+dp[1]+'/'+dp[0];}
+                var msg='Olá '+c.nome.split(' ')[0]+'! 😊 Passando para confirmar seu agendamento para *'+svcsTexto+'* no dia *'+dataFmt+'* às *'+ag.hora+'* com a *Dra. Juliana Lima*.\n\nPor favor, confirme sua presença respondendo esta mensagem com *SIM* ou *NÃO*. 🙏';
                 window.open('https://wa.me/'+tel+'?text='+encodeURIComponent(msg),'_blank');
               }},h('span',{style:{fontSize:18}},'✅'),'Confirmação WhatsApp'),
               h('button',{style:{width:'100%',textAlign:'left',fontFamily:"'Inter',sans-serif",fontSize:14,fontWeight:600,color:'#1a6a9a',background:'#eaf2fa',border:'1px solid #a8c8e8',borderRadius:12,padding:'14px 16px',cursor:'pointer',display:'flex',alignItems:'center',gap:10},onClick:function(){
